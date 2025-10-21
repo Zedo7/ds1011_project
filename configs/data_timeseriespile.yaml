@@ -1,0 +1,9 @@
+﻿dataset: "electricity"  # traffic, weather, exchange_rate, energy...
+window:
+  stride: 1
+  normalize: "zscore_per_series"
+  missing: "mask_zero"
+splits:
+  train_ratio: 0.7
+  val_ratio: 0.15
+  test_ratio: 0.15

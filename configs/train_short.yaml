@@ -1,0 +1,12 @@
+﻿defaults:
+  - defaults
+  - data_timeseriespile
+training:
+  epochs: 5
+  batch_size: 64
+  lr: 3e-4
+window:
+  L_train: 256
+  H: 48
+pe: "rope"
+mask: "causal"

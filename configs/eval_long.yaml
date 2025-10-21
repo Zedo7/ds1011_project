@@ -1,0 +1,7 @@
+﻿defaults:
+  - defaults
+  - data_timeseriespile
+window:
+  L_eval: 1024
+mask: "bcm"
+checkpoint: "./checkpoints/last.ckpt"

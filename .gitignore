@@ -1,0 +1,15 @@
+﻿__pycache__/
+.ipynb_checkpoints/
+*.pyc
+.env
+.venv
+.envrc
+.DS_Store
+checkpoints/
+reports/figures/*
+reports/tables/*
+wandb/
+runs/
+data/*
+!data/.gitkeep
+ds1011project/
