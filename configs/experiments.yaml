@@ -1,0 +1,40 @@
+﻿# experiments.yaml — config-driven experiment grid
+
+defaults:
+  device: cuda          # cuda | cpu
+  normalize: zscore     # zscore strongly recommended
+  epochs: 3
+  batch_size: 64
+  lr: 3e-4
+  seed: 42
+  # write results to your existing CSVs (train.py / eval_extrap.py handle this)
+  results_csv: reports/tables/results.csv
+  extrap_csv:  reports/tables/extrapolation.csv
+
+# Context/horizon & sampling per dataset
+datasets:
+  electricity:   { L: 512, H: 96,  stride: 30, max_series: 16 }
+  traffic:       { L: 512, H: 96,  stride: 30, max_series: 16 }
+  exchange_rate: { L: 365, H: 30,  stride: 7,  max_series: 16 }
+  weather:       { L: 288, H: 144, stride: 60, max_series: 16 }
+
+# Positional encodings to test (you can comment any out)
+pe_list:
+  - name: none
+  - name: absolute
+  - name: rope
+    use_periodic_bias: true
+    periodic_lambdas: [0.2, 0.1]   # daily, weekly weights
+  - name: xpos
+  - name: alibi
+
+# Optional: limit which datasets to run
+selection:
+  datasets: ["electricity", "traffic", "exchange_rate", "weather"]
+  # seeds:   [42, 1337]          # uncomment to run multi-seed
+  # epochs:  5                   # override default epochs for this run
+
+# Extrapolation evaluation after training
+extrapolation:
+  enabled: true
+  multipliers: [1, 2]            # evaluate at L_eval = L * each multiplier

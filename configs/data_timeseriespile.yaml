@@ -1,4 +1,4 @@
-﻿dataset: "electricity"  # traffic, weather, exchange_rate, energy...
+﻿dataset: "electricity"   # one of: electricity, traffic, exchange_rate, weather
 window:
   stride: 1
   normalize: "zscore_per_series"
