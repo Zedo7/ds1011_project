@@ -1,0 +1,21 @@
+# Weather (10-min sampling)
+defaults:
+  device: cuda
+  normalize: zscore
+  epochs: 3
+  batch_size: 64            # drop to 32 if OOM at L=336
+  lr: 2e-4
+  eval_multipliers: [1, 2]
+  pb_lambdas: [0.2, 0.1]
+
+pe_list: [rope, alibi, absolute, none]
+pb_on_pe: [rope, alibi]
+
+datasets:
+  weather:
+    max_series: 21
+    stride_h: 240
+    input_windows_h:  [168, 336]   # 1w, 2w
+    horizons_h:       [24, 168, 336]
+
+

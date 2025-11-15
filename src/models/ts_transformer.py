@@ -4,7 +4,7 @@ from src.models.attention import PEAttention
 from src.pe.absolute import AbsolutePE
 
 class EncoderBlock(nn.Module):
-    def __init__(self, d_model=512, n_heads=8, mlp_ratio=4.0, dropout=0.1,
+    def __init__(self, d_model=512, n_heads=4, mlp_ratio=4.0, dropout=0.1,
                  pe_type="none", rope_base=10000.0, xpos_gamma=1e-4, head_bases=None,
                  use_alibi=False, periodic_periods=(), periodic_lambdas=()):
         super().__init__()
@@ -30,7 +30,7 @@ class EncoderBlock(nn.Module):
         return x
 
 class TSTransformer(nn.Module):
-    def __init__(self, d_model=256, n_heads=8, n_layers=4, dropout=0.1,
+    def __init__(self, d_model=256, n_heads=4, n_layers=4, dropout=0.1,
                  pe="none", rope_base=10000.0, xpos_gamma=1e-4, head_bases=None,
                  use_alibi=False, periodic_periods=(), periodic_lambdas=(),
                  in_features=1, out_features=1, horizon=1):

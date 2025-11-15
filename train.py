@@ -113,7 +113,9 @@ def main():
             last_val_mae_raw = mae(y_raw, p_raw)
         print(f"epoch {ep:02d} | {args.dataset} | pe={args.pe} | val MAE (raw over H) {last_val_mae_raw:.4f} | (z) {last_val_mae_norm:.4f} | {epoch_times[-1]:.1f}s")
 
-    ckpt=f'checkpoints/ts_transformer_{args.dataset}_{args.pe}.pt'
+    ckpt_tag = getattr(args, "ckpt_tag", "")
+
+    ckpt = f"checkpoints/ts_transformer_{args.dataset}_{args.pe}" + (f"_{ckpt_tag}" if ckpt_tag else "") + ".pt"
     torch.save(model.state_dict(), ckpt)
     print('Saved ->', ckpt)
 
@@ -131,3 +133,6 @@ def main():
 
 if __name__=='__main__': 
     main()
+
+
+

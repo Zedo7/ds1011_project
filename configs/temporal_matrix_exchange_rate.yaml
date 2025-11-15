@@ -1,0 +1,19 @@
+# Exchange Rate (daily)
+defaults:
+  device: cuda
+  normalize: zscore
+  epochs: 3
+  batch_size: 64
+  lr: 2e-4
+  eval_multipliers: [1, 2]   # optionally [1,2,4]
+  pb_lambdas: [0.05, 0.02]   # very small; or set pb_on_pe: [] to disable
+
+pe_list: [rope, alibi, absolute, none]
+pb_on_pe: []                 # disable PB by default for FX
+
+datasets:
+  exchange_rate:
+    max_series: 8
+    stride_h: 72             # 3d hop; use 120 for speed
+    input_windows_h:  [720, 2160, 4320, 8760]  # 30d, 90d, 180d, 365d
+    horizons_h:       [168, 720, 2160]         # 7d, 30d, 90d

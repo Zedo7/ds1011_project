@@ -1,0 +1,21 @@
+# Full grid for TRAFFIC (hourly)
+defaults:
+  device: cuda
+  normalize: zscore
+  epochs: 3
+  batch_size: 64
+  lr: 2e-4
+  eval_multipliers: [1, 2]
+  pb_lambdas: [0.2, 0.1]
+
+pe_list: [none, absolute, rope, xpos, alibi]
+pb_on_pe: [rope, xpos, alibi]
+
+datasets:
+  traffic:
+    max_series: 32
+    stride_h: 120
+    input_windows_h:  [168, 336]  # 7d, 14d
+    horizons_h:       [24, 168, 336]    # 1d, 7d, 14d
+
+
