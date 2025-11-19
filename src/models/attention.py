@@ -86,7 +86,8 @@ class PEAttention(nn.Module):
                  pe_type: str="none", rope_base: float=10000.0,
                  xpos_gamma: float=1e-4, head_bases: Optional[List[float]]=None,
                  use_alibi: bool=False, periodic_periods: Optional[Tuple[int,...]]=None,
-                 periodic_lambdas: Optional[Tuple[float,...]]=None):
+                 periodic_lambdas: Optional[Tuple[float,...]]=None,
+                 max_seq_len: int=8192):
         super().__init__()
         assert d_model % n_heads == 0, "d_model must be divisible by n_heads"
         self.d_model = d_model
@@ -104,6 +105,9 @@ class PEAttention(nn.Module):
         self.use_alibi = use_alibi
         self.periodic_periods = periodic_periods or tuple()
         self.periodic_lambdas = periodic_lambdas or tuple()
+        self.max_seq_len = max_seq_len
+        causal_mask = torch.triu(torch.ones(max_seq_len, max_seq_len), diagonal=1).bool()
+        self.register_buffer('causal_mask', causal_mask, persistent=False)
 
     def forward(self, x: torch.Tensor, causal: bool=True):
         B, L, D = x.shape
@@ -135,7 +139,10 @@ class PEAttention(nn.Module):
 
         # fast causal mask (upper triangular -inf)
         if causal:
-            attn = attn + torch.full((L, L), float("-inf"), device=device).triu(1)
+            if L > self.max_seq_len:
+                raise ValueError(f"Sequence length {L} exceeds max_seq_len {self.max_seq_len}")
+            mask = self.causal_mask[:L, :L]
+            attn = attn.masked_fill(mask, float('-inf'))
 
         # ALiBi
         if self.use_alibi:

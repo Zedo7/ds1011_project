@@ -3,10 +3,14 @@ from datetime import datetime
 import numpy as np
 import torch, torch.nn as nn
 from torch.utils.data import TensorDataset, DataLoader
-
+from tqdm import tqdm
 from src.data.timeseries_pile import TimeSeriesPile
 from src.models.ts_transformer import TSTransformer
 from src.utils.metrics import mae
+import logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(message)s')
+logger = logging.getLogger(__name__)
+
 
 def count_params_m(model): 
     return sum(p.numel() for p in model.parameters()) / 1e6
@@ -41,29 +45,59 @@ def main():
     p.add_argument('--log_csv', default='reports/tables/results.csv')
     args=p.parse_args()
 
-    torch.manual_seed(args.seed); np.random.seed(args.seed)
-    device = 'cuda' if (args.device=='auto' and torch.cuda.is_available()) else (args.device if args.device!='auto' else 'cpu')
-    print(f"[device] {device}")
+    # Create directories FIRST
+    os.makedirs('logs', exist_ok=True)
+    os.makedirs('checkpoints', exist_ok=True)
+    os.makedirs('reports/tables', exist_ok=True)
 
-    ds=TimeSeriesPile()
-    df=ds.load(args.dataset)
-    periods,_ = ds.infer_periods(df, topk_fft=1)
+    # Set seeds
+    torch.manual_seed(args.seed)
+    np.random.seed(args.seed)
+    
+    # Determine device
+    device = 'cuda' if (args.device=='auto' and torch.cuda.is_available()) else (
+        args.device if args.device!='auto' else 'cpu'
+    )
+    
+    # Setup logging to file AND console
+    log_file = f'logs/train_{args.dataset}_{args.pe}.log'
+    file_handler = logging.FileHandler(log_file, mode='w')  # 'w' = overwrite each run
+    console_handler = logging.StreamHandler()
+    
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(levelname)s - %(message)s',
+        handlers=[file_handler, console_handler]
+    )
+    logger = logging.getLogger(__name__)
+    
+    # LOAD DATA
+    ds = TimeSeriesPile()
+    df = ds.load(args.dataset)
+    
+    # Detect periods for periodic bias
+    periods, _ = ds.infer_periods(df, topk_fft=1)
+    logger.info(f"Detected periods: {periods}")
+    
     if args.use_periodic_bias:
         pb_periods = tuple(periods[:2])
         pb_lambdas = tuple(float(x) for x in args.periodic_lambdas.split(',')[:len(pb_periods)])
+        logger.info(f"Periodic bias enabled: periods={pb_periods}, lambdas={pb_lambdas}")
     else:
         pb_periods, pb_lambdas = (), ()
+        logger.info("Periodic bias disabled")
 
-    print(f"[data] {args.dataset} df shape = {df.shape}")
-    t0=time.time()
+    # Create windows
+    logger.info(f"Creating windows: L={args.L}, H={args.H}, stride={args.stride}, max_series={args.max_series}")
+    t0 = time.time()
     X, Y, meta = ds.make_windows_from_df(
         df, L=args.L, H=args.H, stride=args.stride, max_series=args.max_series,
         normalize=args.normalize, return_meta=True
     )
-    sids = meta["series_ids"]; means = meta["means"]; stds = meta["stds"]
-    print(f"[windows] L={args.L} H={args.H} stride={args.stride} max_series={args.max_series}")
-    print(f"[windows] X={X.shape} Y={Y.shape} ({time.time()-t0:.1f}s) | normalize={args.normalize}")
-
+    sids = meta["series_ids"]
+    means = meta["means"]
+    stds = meta["stds"]
+    logger.info(f"Windows created: X={X.shape}, Y={Y.shape} in {time.time()-t0:.1f}s")
     # split
     n_hold = min(2000, max(200, len(X)//10))
     Xtr, Ytr, S_tr = X[:-n_hold], Y[:-n_hold], sids[:-n_hold]
@@ -74,6 +108,7 @@ def main():
     va = DataLoader(TensorDataset(torch.from_numpy(Xva), torch.from_numpy(Yva), torch.from_numpy(S_va)),
                     batch_size=args.batch_size)
 
+    # Create model
     head_bases = [float(x) for x in args.multi_base.split(',')] if args.multi_base else None
     model = TSTransformer(
         d_model=256, n_heads=8, n_layers=4, dropout=0.1,
@@ -81,40 +116,138 @@ def main():
         use_alibi=(args.pe=='alibi'), periodic_periods=pb_periods, periodic_lambdas=pb_lambdas,
         in_features=1, out_features=1, horizon=args.H
     ).to(device)
+    
+    # NOW we can log model info
+    logger.info(f"Device: {device}")
+    logger.info(f"Dataset: {args.dataset}, shape={df.shape}")
+    logger.info(f"PE: {args.pe}, periodic_bias={args.use_periodic_bias}")
+    logger.info(f"Model params: {count_params_m(model):.2f}M parameters")   
 
+# Optimizer and loss
     opt = torch.optim.AdamW(model.parameters(), lr=args.lr)
     loss_fn = nn.MSELoss()
     use_amp = (device == "cuda")
     scaler = torch.cuda.amp.GradScaler(enabled=use_amp)
+    
+    # Learning rate scheduler
+    from torch.optim.lr_scheduler import ReduceLROnPlateau
+    scheduler = ReduceLROnPlateau(
+        opt, mode='min', factor=0.5, patience=2, verbose=True, min_lr=1e-6
+    )
+    
+    # Early stopping
+    best_val_mae = float('inf')
+    patience = 5
+    epochs_without_improvement = 0
+    best_model_state = None
 
-    epoch_times=[]; last_val_mae_norm=None; last_val_mae_raw=None
+    epoch_times = []
+    last_val_mae_norm = None
+    last_val_mae_raw = None
 
-    for ep in range(1, args.epochs+1):
-        et0=time.time()
+    logger.info("=" * 60)
+    logger.info("Starting training...")
+    logger.info("=" * 60)
+
+    for ep in range(1, args.epochs + 1):
+        et0 = time.time()
+        
+        # ============ TRAINING ============
         model.train()
-        for xb, yb, sb in tr:
-            xb=xb.to(device); yb=yb.to(device)                 # yb: (B,H,1)
+        train_loss = 0.0
+        train_batches = 0
+        
+        for xb, yb, sb in tqdm(tr, desc=f"Epoch {ep}/{args.epochs}", leave=False):
+            xb = xb.to(device)
+            yb = yb.to(device)
+            
             with torch.cuda.amp.autocast(enabled=use_amp):
-                pred = model(xb).squeeze(-1)                   # (B,H)
-                targ = yb[...,0]                               # (B,H)
+                pred = model(xb).squeeze(-1)              # (B, H)
+                targ = yb[..., 0]                         # (B, H)
                 loss = loss_fn(pred, targ)
-            opt.zero_grad(); scaler.scale(loss).backward(); scaler.step(opt); scaler.update()
-        epoch_times.append(time.time()-et0)
-
-        # quick val on one batch
+            
+            opt.zero_grad()
+            scaler.scale(loss).backward()
+            
+            # Gradient clipping
+            scaler.unscale_(opt)
+            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+            
+            scaler.step(opt)
+            scaler.update()
+            
+            train_loss += loss.item()
+            train_batches += 1
+        
+        avg_train_loss = train_loss / train_batches
+        epoch_time = time.time() - et0
+        epoch_times.append(epoch_time)
+        
+        # ============ VALIDATION (FULL) ============
         model.eval()
+        val_preds = []
+        val_targets = []
+        val_sids = []
+        
         with torch.no_grad():
-            xb, yb, sb = next(iter(va))
-            pv = model(xb.to(device)).squeeze(-1).detach().cpu().numpy()   # (B,H)
-            yv = yb[...,0].detach().cpu().numpy()                           # (B,H)
-            sids_b = sb.numpy()
-            last_val_mae_norm = mae(yv.reshape(-1), pv.reshape(-1))
-            p_raw, y_raw = denorm_horizon(pv, yv, sids_b, means, stds, H=args.H)
-            last_val_mae_raw = mae(y_raw, p_raw)
-        print(f"epoch {ep:02d} | {args.dataset} | pe={args.pe} | val MAE (raw over H) {last_val_mae_raw:.4f} | (z) {last_val_mae_norm:.4f} | {epoch_times[-1]:.1f}s")
+            for xb, yb, sb in tqdm(va, desc="Validation", leave=False):
+                xb = xb.to(device)
+                pv = model(xb).squeeze(-1).detach().cpu().numpy()   # (B, H)
+                yv = yb[..., 0].detach().cpu().numpy()              # (B, H)
+                
+                val_preds.append(pv)
+                val_targets.append(yv)
+                val_sids.append(sb.numpy())
+        
+        # Concatenate all batches
+        val_preds = np.concatenate(val_preds, axis=0)       # (N, H)
+        val_targets = np.concatenate(val_targets, axis=0)   # (N, H)
+        val_sids = np.concatenate(val_sids, axis=0)         # (N,)
+        
+        # Compute metrics on z-scored data
+        last_val_mae_norm = mae(val_targets.reshape(-1), val_preds.reshape(-1))
+        
+        # Denormalize and compute raw MAE
+        pred_raw, targ_raw = denorm_horizon(
+            val_preds, val_targets, val_sids, means, stds, H=args.H
+        )
+        last_val_mae_raw = mae(targ_raw, pred_raw)
+        
+        logger.info(
+            f"Epoch {ep:02d}/{args.epochs} | "
+            f"train_loss={avg_train_loss:.4f} | "
+            f"val_MAE={last_val_mae_raw:.2f} (raw) | "
+            f"{last_val_mae_norm:.4f} (z) | "
+            f"time={epoch_time:.1f}s"
+        )
+        
+        # Learning rate scheduling
+        scheduler.step(last_val_mae_raw)
+        
+        # Early stopping
+        if last_val_mae_raw < best_val_mae:
+            best_val_mae = last_val_mae_raw
+            best_model_state = {k: v.cpu().clone() for k, v in model.state_dict().items()}
+            epochs_without_improvement = 0
+            logger.info(f"  ✓ New best validation MAE: {best_val_mae:.4f}")
+        else:
+            epochs_without_improvement += 1
+            logger.info(f"  → No improvement for {epochs_without_improvement} epoch(s)")
+            
+            if epochs_without_improvement >= patience:
+                logger.info(f"Early stopping triggered after {ep} epochs")
+                break
+
+    # Restore best model
+    if best_model_state is not None:
+        model.load_state_dict(best_model_state)
+        logger.info(f"Restored best model (val MAE = {best_val_mae:.4f})")
+    
+    logger.info("=" * 60)
+    logger.info("Training completed!")
+    logger.info("=" * 60)
 
     ckpt_tag = getattr(args, "ckpt_tag", "")
-
     ckpt = f"checkpoints/ts_transformer_{args.dataset}_{args.pe}" + (f"_{ckpt_tag}" if ckpt_tag else "") + ".pt"
     torch.save(model.state_dict(), ckpt)
     print('Saved ->', ckpt)

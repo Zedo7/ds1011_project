@@ -35,13 +35,32 @@ def _is_business_daily(index: pd.DatetimeIndex) -> bool:
     return wknd_frac < 0.02
 
 def _default_periods_from_minutes(minutes: float, index: pd.DatetimeIndex | None):
+    """
+    Return default seasonal periods in TIMESTEPS (not hours).
+    
+    Args:
+        minutes: Sampling interval in minutes (e.g., 60 for hourly, 10 for 10-min)
+        index: DatetimeIndex for business day detection
+    
+    Returns:
+        Tuple of periods in timesteps (e.g., (24, 168) for daily/weekly in hourly data)
+    
+    Examples:
+        Hourly data (60 min):  → (24, 168) = daily, weekly
+        10-min data:           → (144, 1008) = daily, weekly
+        Daily data (1440 min): → (7, 30, 365) = weekly, monthly, yearly
+    """
     if minutes is None or minutes <= 0:
-        return (24, 168)
+        return (24, 168)  # Assume hourly
+    
+    # Daily data
     if abs(minutes - 1440) < 60:
         if index is not None and _is_business_daily(index):
-            return (5, 22, 260)
+            return (5, 22, 260)  # Weekly, monthly, yearly (business days)
         else:
-            return (7, 30, 365)
+            return (7, 30, 365)  # Weekly, monthly, yearly (calendar days)
+    
+    # Sub-daily data: compute steps per day/week
     daily_steps = max(2, int(round(1440.0 / minutes)))
     weekly_steps = daily_steps * 7
     return (daily_steps, weekly_steps)

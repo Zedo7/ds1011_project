@@ -1,38 +1,33 @@
-﻿# Core
-torch>=2.2
-numpy>=1.24
-pandas>=2.0
-scipy>=1.11
+﻿# DS1011 Final Project - Time-Series Positional Encoding
+# Requirements File
+# =======================================================
 
-# HF stack (datasets optional)
-datasets>=2.19
-transformers>=4.44
-accelerate>=0.33
+# Core ML/DL
+torch>=2.0.0
+numpy>=1.24.0
+pandas>=2.0.0
+scikit-learn>=1.3.0
 
-# Notebooks
-ipykernel>=6.29
-nbformat>=5.10
-jupyterlab>=4.2
-jupytext>=1.16
+# Visualization
+matplotlib>=3.7.0
+seaborn>=0.12.0
 
-# Config & CLI
-hydra-core>=1.3
-omegaconf>=2.3
+# Data Processing
 pyyaml>=6.0
+tqdm>=4.65.0
 
-# Metrics & plots
-matplotlib>=3.8
-plotly>=5.22
-seaborn>=0.13
+# Scientific Computing
+scipy>=1.10.0
 
-# Utils
-tqdm>=4.66
-rich>=13.7
+# Optional but Recommended
+jupyter>=1.0.0
+ipython>=8.12.0
 
-# Logging
-wandb>=0.17
-tensorboard>=2.16
-
-# Testing & quality (optional)
-pytest>=7.4
-ruff>=0.6
+# Note: Install PyTorch separately with CUDA support
+# See installation instructions in TEAMMATE_INSTRUCTIONS.md
+#
+# For CUDA 11.8:
+# pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
+#
+# For CUDA 12.1:
+# pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121

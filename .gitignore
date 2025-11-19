@@ -1,15 +1,69 @@
-﻿__pycache__/
-.ipynb_checkpoints/
+﻿# Python
+__pycache__/
 *.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Environment
 .env
 .venv
 .envrc
+env/
+venv/
+ENV/
+
+# OS
 .DS_Store
-checkpoints/
-reports/figures/*
-reports/tables/*
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Project-specific
+
+# Large model checkpoints (don't commit these)
+checkpoints/*.pt
+checkpoints/*.pth
+checkpoints/*.ckpt
+
+# Large data files
+data/*.csv
+data/*.h5
+data/*.pkl
+!data/.gitkeep
+
+# Generated figures (can regenerate)
+reports/figures/*.png
+reports/figures/*.pdf
+reports/figures/*.jpg
+
+# Logs
+logs/*.log
+*.log
+
+# Wandb
 wandb/
 runs/
-data/*
-!data/.gitkeep
-ds1011project/
+
+# Temporary files
+*.tmp
+*.bak
+*.swp
+
+# ALLOW these important files:
+!reports/tables/results.csv
+!reports/tables/extrapolation.csv
+!reports/tables/*.csv
