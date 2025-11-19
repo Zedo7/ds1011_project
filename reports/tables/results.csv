@@ -101,3 +101,4 @@ timestamp,dataset,pe,normalize,L,H,stride,max_series,epochs,seed,val_mae_raw,val
 2025-11-19T00:46:33.703667,traffic,absolute,zscore,336,336,120,32,3,42,0.017788,0.354209,3.446,cuda,3.246,checkpoints/ts_transformer_traffic_absolute.pt
 2025-11-19T00:59:26.227397,traffic,rope,zscore,336,336,120,32,3,42,0.015446,0.310413,3.944,cuda,3.246,checkpoints/ts_transformer_traffic_rope.pt
 2025-11-19T01:11:58.647030,traffic,xpos,zscore,336,336,120,32,3,42,0.015475,0.310916,3.853,cuda,3.246,checkpoints/ts_transformer_traffic_xpos.pt
+2025-11-19T01:23:59.105802,traffic,alibi,zscore,336,336,120,32,3,42,0.022493,0.440429,3.747,cuda,3.246,checkpoints/ts_transformer_traffic_alibi.pt

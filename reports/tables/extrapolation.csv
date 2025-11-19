@@ -197,3 +197,7 @@ timestamp,dataset,pe,ckpt,normalize,L_train,H,seasonality,L_eval,MAE,RMSE,sMAPE,
 2025-11-19T00:59:04.472719,traffic,absolute,checkpoints/ts_transformer_traffic_absolute.pt,zscore,336,336,24,672,0.0474,0.0684,85.2,2.5967,1.0065
 2025-11-19T01:11:40.326226,traffic,rope,checkpoints/ts_transformer_traffic_rope.pt,zscore,336,336,24,336,0.0414,0.0613,71.43,2.2657,1.0
 2025-11-19T01:11:40.326226,traffic,rope,checkpoints/ts_transformer_traffic_rope.pt,zscore,336,336,24,672,0.0416,0.0615,71.57,2.2751,1.0041
+2025-11-19T01:23:42.074537,traffic,xpos,checkpoints/ts_transformer_traffic_xpos.pt,zscore,336,336,24,336,0.0408,0.0608,70.28,2.2337,1.0
+2025-11-19T01:23:42.074537,traffic,xpos,checkpoints/ts_transformer_traffic_xpos.pt,zscore,336,336,24,672,0.041,0.0609,70.37,2.2417,1.0035
+2025-11-19T01:35:47.231224,traffic,alibi,checkpoints/ts_transformer_traffic_alibi.pt,zscore,336,336,24,336,0.0431,0.0636,73.47,2.3573,1.0
+2025-11-19T01:35:47.231224,traffic,alibi,checkpoints/ts_transformer_traffic_alibi.pt,zscore,336,336,24,672,0.0431,0.0637,73.29,2.3598,1.001
